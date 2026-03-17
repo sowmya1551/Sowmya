@@ -63,13 +63,31 @@ const menuBtn = document.getElementById("menuBtn");
 const navMenu = document.getElementById("navMenu");
 
 if (menuBtn && navMenu) {
-  menuBtn.addEventListener("click", function () {
+  menuBtn.addEventListener("click", function (e) {
+    // Stop the click from immediately bubbling to the document listener
+    // which would close the menu we just opened
+    e.stopPropagation();
     navMenu.classList.toggle("open");
   });
+
+  // Close menu when any nav link is clicked
   document.querySelectorAll(".nav li a").forEach((link) => {
     link.addEventListener("click", () => {
       navMenu.classList.remove("open");
     });
+  });
+
+  // FIX: Close menu when user taps/clicks outside of it.
+  // Previously the menu had no outside-click dismiss — on mobile
+  // users expect to close a slide-out drawer by tapping the dark area.
+  document.addEventListener("click", function (e) {
+    if (
+      navMenu.classList.contains("open") &&
+      !navMenu.contains(e.target) &&
+      !menuBtn.contains(e.target)
+    ) {
+      navMenu.classList.remove("open");
+    }
   });
 }
 
@@ -159,24 +177,44 @@ const modalOverlay = document.getElementById("modalOverlay");
 const modalImg     = document.getElementById("modalImg");
 
 if (dashImg && imgModal) {
-  dashImg.addEventListener("click", function () {
-    modalImg.src = this.src;
+  // Helper to open modal
+  function openModal(src) {
+    modalImg.src = src;
     imgModal.classList.add("active");
-    document.body.style.overflow = "hidden";
+
+    // FIX: On iOS Safari/Chrome, overflow:hidden alone doesn't prevent
+    // background scrolling. Adding position:fixed + width:100% is the
+    // reliable cross-browser fix. We also save the current scroll position
+    // so we can restore it exactly when the modal closes.
+    document.body._scrollY = window.scrollY;
+    document.body.style.overflow   = "hidden";
+    document.body.style.position   = "fixed";
+    document.body.style.width      = "100%";
+    document.body.style.top        = "-" + document.body._scrollY + "px";
+  }
+
+  // Helper to close modal
+  function closeModal() {
+    imgModal.classList.remove("active");
+
+    // FIX: Restore scroll position precisely after removing position:fixed
+    const scrollY = document.body._scrollY || 0;
+    document.body.style.overflow = "";
+    document.body.style.position = "";
+    document.body.style.width    = "";
+    document.body.style.top      = "";
+    window.scrollTo(0, scrollY);
+  }
+
+  dashImg.addEventListener("click", function () {
+    openModal(this.src);
   });
 
   document.querySelectorAll(".screenshot-img").forEach((img) => {
     img.addEventListener("click", function () {
-      modalImg.src = this.src;
-      imgModal.classList.add("active");
-      document.body.style.overflow = "hidden";
+      openModal(this.src);
     });
   });
-
-  function closeModal() {
-    imgModal.classList.remove("active");
-    document.body.style.overflow = "";
-  }
 
   modalClose.addEventListener("click", closeModal);
   modalOverlay.addEventListener("click", closeModal);
